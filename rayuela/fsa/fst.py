@@ -94,6 +94,44 @@ class FST(FSA):
         # Requires composition
         raise NotImplementedError
 
+    def top_compose_brute(self, fst):
+        # the two machines need to be in the same semiring
+        assert self.R == fst.R
+
+        # add initial states
+        product_fst = FST(R=self.R)
+        for (q1, w1), (q2, w2) in product(self.I, fst.I):
+            product_fst.add_I(PairState(q1, q2), w=w1 * w2)
+
+        self_finals = {q: w for q, w in self.F}
+        fsa_finals = {q: w for q, w in fst.F}
+
+        # add "body" states
+        for q1, q2 in product(self.Q, fst.Q):
+
+            E1 = [((a,b), j, w) for ((a,b), j, w) in self.arcs(q1)]
+            E2 = [((a,b), j, w) for ((a,b), j, w) in fst.arcs(q2)]
+
+            M = [((a, j1, w1), (d, j2, w2))
+                 for ((a,b), j1, w1), ((c,d), j2, w2) in product(E1, E2)
+                 if b == c]
+
+            for (a, j1, w1), (d, j2, w2) in M:
+                product_fst.set_arc(
+                    PairState(q1, q2), a, d,
+                    PairState(j1, j2), w=w1*w2)
+
+        # final state handling
+        for (q1,w1), (q2,w2) in product(self.F, fst.F):
+            if PairState(q1, q2) in product_fst.Q:
+                product_fst.add_F(
+                    PairState(q1, q2), w=w1*w2)
+
+        return product_fst
+
+    def bottom_compose_brute(self, fst):
+        return fst.top_compose_brute(self)
+
     def top_compose(self, fst):
         # Assignment 3: Question 3
         raise NotImplementedError
